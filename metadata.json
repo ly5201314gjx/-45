@@ -1,0 +1,5 @@
+{
+  "name": "QuantAI Crypto Analyst",
+  "description": "Real-time AI-powered cryptocurrency analysis platform featuring multi-dimensional market scanning, historical pattern matching, and predictive trend modeling using Gemini models.",
+  "requestFramePermissions": []
+}
