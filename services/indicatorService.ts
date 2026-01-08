@@ -141,7 +141,7 @@ export const calculateWilliamsR = (candles: Candle[], period: number): number[] 
   });
 };
 
-// Stochastic Oscillator (Standard)
+// Stochastic Oscillator
 export const calculateStochastic = (candles: Candle[], period: number, smooth: number) => {
   const stochKRaw = candles.map((c, i) => {
     if (i < period - 1) return NaN;
@@ -153,9 +153,7 @@ export const calculateStochastic = (candles: Candle[], period: number, smooth: n
     return ((c.close - lowN) / (highN - lowN)) * 100;
   });
 
-  // Smooth %K
   const stochK = calculateSMA(stochKRaw.map(v => isNaN(v) ? 0 : v), smooth);
-  // %D is SMA of %K
   const stochD = calculateSMA(stochK.map(v => isNaN(v) ? 0 : v), smooth);
 
   return { stochK, stochD };
@@ -163,7 +161,6 @@ export const calculateStochastic = (candles: Candle[], period: number, smooth: n
 
 // ADX
 export const calculateADX = (candles: Candle[], period: number) => {
-  // 1. Calculate TR, +DM, -DM
   const trs: number[] = [];
   const plusDMs: number[] = [];
   const minusDMs: number[] = [];
@@ -191,16 +188,13 @@ export const calculateADX = (candles: Candle[], period: number) => {
     else minusDMs.push(0);
   }
 
-  // 2. Smooth TR, +DM, -DM (Using Wilders Smoothing which is similar to EMA(2*period-1) or often just SMA for simplicity in some implementations, but Wilders is correct for ADX)
-  // Standard Wilder's smoothing: previous * (n-1)/n + current * 1/n
   const smoothWilders = (data: number[], n: number) => {
     const res: number[] = [];
     let sum = 0;
-    // Initial SMA
     for(let i=0; i<data.length; i++) {
        if (i < n) {
            sum += data[i];
-           if (i === n-1) res.push(sum); // Initial sum, often initial SMA is used as first smoothed value
+           if (i === n-1) res.push(sum); 
            else res.push(NaN);
        } else {
            const prev = res[i-1];
@@ -232,10 +226,46 @@ export const calculateADX = (candles: Candle[], period: number) => {
     }
   }
 
-  // 3. ADX is smoothed DX
   const adx = smoothWilders(dx.map(v => isNaN(v) ? 0 : v), period);
 
   return { adx, pdi, mdi };
+};
+
+// --- NEW: Linear Regression Calculation ---
+// Calculates the slope of the linear regression line over 'period' candles
+export const calculateLinearRegression = (closes: number[], period: number) => {
+    const slopes: number[] = [];
+    
+    // X values are just 0, 1, 2... period-1
+    // Pre-calculate sumX and sumXSq for efficiency as they are constant for fixed period
+    const n = period;
+    let sumX = 0;
+    let sumXSq = 0;
+    for(let i=0; i<n; i++) {
+        sumX += i;
+        sumXSq += i*i;
+    }
+    const denominator = n * sumXSq - sumX * sumX;
+
+    for (let i = 0; i < closes.length; i++) {
+        if (i < period - 1) {
+            slopes.push(NaN);
+            continue;
+        }
+
+        const slice = closes.slice(i - period + 1, i + 1);
+        let sumY = 0;
+        let sumXY = 0;
+        
+        for (let j = 0; j < n; j++) {
+            sumY += slice[j];
+            sumXY += j * slice[j];
+        }
+
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        slopes.push(slope);
+    }
+    return slopes;
 };
 
 
@@ -252,10 +282,12 @@ export const enrichCandles = (candles: Candle[], config: IndicatorConfig): Candl
   const kdj = calculateKDJ(candles, config.kdjPeriod);
   const atr = calculateATR(candles, config.atrPeriod);
   
-  // New Indicators
   const williams = calculateWilliamsR(candles, config.williamsPeriod);
   const stoch = calculateStochastic(candles, config.stochPeriod, config.stochSmooth);
   const adxData = calculateADX(candles, config.adxPeriod);
+  
+  // Calculate Linear Regression Slope (Period 14)
+  const slopes = calculateLinearRegression(closes, 14);
 
   return candles.map((c, i) => ({
     ...c,
@@ -273,12 +305,12 @@ export const enrichCandles = (candles: Candle[], config: IndicatorConfig): Candl
     d: kdj[i].d,
     j: kdj[i].j,
     atr: atr[i],
-    // New fields
     williamsR: williams[i],
     stochK: stoch.stochK[i],
     stochD: stoch.stochD[i],
     adx: adxData.adx[i],
     pdi: adxData.pdi[i],
-    mdi: adxData.mdi[i]
+    mdi: adxData.mdi[i],
+    linRegSlope: slopes[i]
   }));
 };

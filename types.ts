@@ -15,34 +15,25 @@ export enum Interval {
 }
 
 export enum StrategyMode {
-  SCALPING = 'SCALPING',       // High Frequency / Aggressive
-  SWING = 'SWING',             // Medium Term / Trend Following
-  CONSERVATIVE = 'CONSERVATIVE' // Low Risk / High Confirmation
+  SCALPING = 'SCALPING',       // High Frequency
+  SWING = 'SWING',             // Trend Following
+  CONSERVATIVE = 'CONSERVATIVE' // Low Risk
 }
 
 export interface IndicatorConfig {
-  // MA
   maFast: number;
   maMedium: number;
   maSlow: number;
-  // RSI
   rsiPeriod: number;
-  // Bollinger
   bbPeriod: number;
   bbMultiplier: number;
-  // MACD
   macdFast: number;
   macdSlow: number;
   macdSignal: number;
-  // KDJ
   kdjPeriod: number;
-  // ATR
   atrPeriod: number;
-  // ADX
   adxPeriod: number;
-  // Williams %R
   williamsPeriod: number;
-  // Stochastic
   stochPeriod: number;
   stochSmooth: number;
 }
@@ -75,21 +66,26 @@ export interface Candle {
   
   atr?: number;
 
-  // New Indicators
   adx?: number;
-  pdi?: number; // +DI
-  mdi?: number; // -DI
+  pdi?: number;
+  mdi?: number;
   williamsR?: number;
   stochK?: number;
   stochD?: number;
+  
+  // New Math Model Indicators
+  linRegSlope?: number; // Linear Regression Slope
+  linRegAngle?: number; // Normalized Angle
 }
 
-export type SignalType = 'LONG' | 'SHORT' | 'EXIT_LONG' | 'EXIT_SHORT';
+// Expanded Signal Types for clearer UI
+export type SignalType = 'ENTRY_LONG' | 'ENTRY_SHORT' | 'EXIT_TP' | 'EXIT_SL';
 
 export interface SignalPoint {
   time: number;
   price: number;
   type: SignalType;
+  subType?: 'LONG' | 'SHORT'; // Which position is being closed
   reason: string;
   strategy: string; 
   strength: 'WEAK' | 'MODERATE' | 'STRONG';

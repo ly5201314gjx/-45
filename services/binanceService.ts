@@ -1,8 +1,6 @@
 import { Candle } from '../types';
 
-const BASE_URL = 'https://api.binance.com/api/v3';
-
-// Fallback generator if API fails (due to CORS in browser without proxy)
+// Fallback generator if API completely fails
 const generateMockData = (symbol: string, limit: number): Candle[] => {
   const now = Date.now();
   let price = symbol.includes('BTC') ? 65000 : symbol.includes('ETH') ? 3500 : symbol.includes('XRP') ? 0.6 : 2000;
@@ -25,13 +23,19 @@ const generateMockData = (symbol: string, limit: number): Candle[] => {
 
 export const fetchKlines = async (symbol: string, interval: string, limit: number = 100): Promise<Candle[]> => {
   try {
-    const response = await fetch(`${BASE_URL}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+    // Try to use the Vercel Serverless Function proxy first
+    // This avoids CORS issues on the web
+    const response = await fetch(`/api/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
     
     if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error("Proxy response was not ok");
     }
 
     const rawData = await response.json();
+
+    if (!Array.isArray(rawData)) {
+        throw new Error("Invalid data format");
+    }
 
     return rawData.map((d: any) => ({
       time: d[0],
@@ -42,7 +46,26 @@ export const fetchKlines = async (symbol: string, interval: string, limit: numbe
       volume: parseFloat(d[5]),
     }));
   } catch (error) {
-    console.warn("Binance API failed (likely CORS), using simulation mode.", error);
+    console.warn("API proxy failed, attempting direct fetch or simulation...", error);
+    
+    // Fallback: Try Direct (Might work in some local envs, will likely fail CORS on web)
+    try {
+        const directResponse = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+        if(directResponse.ok) {
+             const directData = await directResponse.json();
+             return directData.map((d: any) => ({
+                time: d[0],
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4]),
+                volume: parseFloat(d[5]),
+              }));
+        }
+    } catch(e) {
+        // Ignore direct fetch error
+    }
+
     return generateMockData(symbol, limit);
   }
 };

@@ -26,114 +26,78 @@ interface Props {
   showShorts: boolean; // Control toggle
 }
 
-// Professional Signal Arrow with Strength Visualization & Exit Logic
-const SignalArrow = (props: any) => {
-    const { cx, cy, type, strength } = props;
+// Optimized Signal Marker Component
+const SignalMarker = (props: any) => {
+    const { cx, cy, type, strength, subType } = props;
     if (!cx || !cy) return null;
     
-    const isEntryLong = type === 'LONG';
-    const isEntryShort = type === 'SHORT';
-    const isExitLong = type === 'EXIT_LONG';
-    const isExitShort = type === 'EXIT_SHORT';
-
-    const isEntry = isEntryLong || isEntryShort;
-    
-    // Colors
-    let color = '#94a3b8'; // default grey
-    if (isEntryLong) color = '#10B981'; // Emerald
-    if (isEntryShort) color = '#F43F5E'; // Rose
-    if (isExitLong) color = '#F59E0B'; // Amber (Exit Long Warning)
-    if (isExitShort) color = '#3B82F6'; // Blue (Exit Short Warning)
-
-    // Configuration based on Strength & Type
+    // Determine Color and Shape Logic
+    let color = '#94a3b8'; 
     let scale = 1;
-    let label = '';
-    let hasGlow = false;
-    let hasPulse = false;
-
-    // --- EXIT SIGNAL VISUALS ---
-    if (!isEntry) {
-        scale = 0.9;
-        label = 'X'; // Simple exit marker
-    } 
-    // --- ENTRY SIGNAL VISUALS ---
-    else {
-        if (strength === 'WEAK') {
-            scale = 1.0;
-            label = isEntryLong ? 'L' : 'S';
-        } else if (strength === 'MODERATE') {
-            scale = 1.2;
-            label = isEntryLong ? 'LONG' : 'SHORT';
-            hasGlow = true;
-        } else if (strength === 'STRONG') {
-            scale = 1.5;
-            label = isEntryLong ? 'BUY' : 'SELL';
-            hasGlow = true;
-            hasPulse = true;
-        }
-    }
-
-    const size = 10 * scale;
-    const halfWidth = 5 * scale;
-    const offset = 15; 
-
-    // Path Calculations
     let path = '';
-    let textY = 0;
-    let badgeY = 0;
+    let label = '';
+    let labelY = 0;
+    let glow = false;
 
-    // Upward pointing (Long Entry or Short Exit)
-    if (isEntryLong || isExitShort) {
-        const tipY = cy + offset;
-        const baseY = tipY + size;
-        path = `M${cx},${tipY} L${cx - halfWidth},${baseY} L${cx + halfWidth},${baseY} Z`;
-        textY = baseY + (10 * scale);
-        badgeY = tipY + size/2;
+    // --- 1. ENTRY SIGNALS ---
+    if (type === 'ENTRY_LONG') {
+        color = '#10B981'; // Emerald
+        scale = strength === 'STRONG' ? 1.4 : 1.1;
+        glow = strength === 'STRONG';
+        // Up Arrow
+        path = `M${cx},${cy+10} L${cx-6},${cy+20} L${cx+6},${cy+20} Z`; 
+        label = 'BUY';
+        labelY = cy + 30;
     } 
-    // Downward pointing (Short Entry or Long Exit)
-    else {
-        const tipY = cy - offset;
-        const baseY = tipY - size;
-        path = `M${cx},${tipY} L${cx - halfWidth},${baseY} L${cx + halfWidth},${baseY} Z`;
-        textY = baseY - (4 * scale);
-        badgeY = tipY - size/2;
+    else if (type === 'ENTRY_SHORT') {
+        color = '#F43F5E'; // Rose
+        scale = strength === 'STRONG' ? 1.4 : 1.1;
+        glow = strength === 'STRONG';
+        // Down Arrow
+        path = `M${cx},${cy-10} L${cx-6},${cy-20} L${cx+6},${cy-20} Z`; 
+        label = 'SELL';
+        labelY = cy - 26;
     }
-
-    // Override shape for EXIT to be distinct (e.g., a square or cross-like diamond)
-    if (!isEntry) {
-         path = `M${cx},${cy} m-${halfWidth},0 l${halfWidth},-${halfWidth} l${halfWidth},${halfWidth} l-${halfWidth},${halfWidth} Z`; // Diamond
-         textY = cy + (isExitLong ? -15 : 15);
-         badgeY = cy;
-         label = isExitLong ? 'TP/SL' : 'TP/SL';
+    // --- 2. EXIT TP SIGNALS (Take Profit) ---
+    else if (type === 'EXIT_TP') {
+        color = subType === 'LONG' ? '#059669' : '#BE123C'; // Darker Green/Red
+        scale = 1.2;
+        // Checkmark / Target Circle
+        path = `M${cx},${cy} m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M${cx-3},${cy} l2,2 l4,-4`;
+        label = 'TP';
+        labelY = subType === 'LONG' ? cy - 15 : cy + 15;
+    }
+    // --- 3. EXIT SL SIGNALS (Stop Loss) ---
+    else if (type === 'EXIT_SL') {
+        color = '#F59E0B'; // Amber/Orange for Warning
+        scale = 1.0;
+        // X Mark
+        path = `M${cx-4},${cy-4} L${cx+4},${cy+4} M${cx+4},${cy-4} L${cx-4},${cy+4}`;
+        label = 'SL';
+        labelY = subType === 'LONG' ? cy + 15 : cy - 15;
     }
 
     return (
         <g>
-            {/* Pulse Animation for Strong Signals */}
-            {hasPulse && (
-                 <circle cx={cx} cy={badgeY} r={size * 1.5} fill={color} opacity="0.3">
-                    <animate attributeName="r" from={size} to={size * 2} dur="1s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" from="0.5" to="0" dur="1s" repeatCount="indefinite" />
+            {/* Glow for Strong Signals */}
+            {glow && (
+                 <circle cx={cx} cy={cy} r={15} fill={color} opacity="0.2">
+                    <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2s" repeatCount="indefinite" />
                  </circle>
             )}
 
-            {/* Static Glow */}
-            {hasGlow && (
-                <circle cx={cx} cy={badgeY} r={size * 1.2} fill={color} opacity="0.2" />
-            )}
+            {/* Icon Shape */}
+            <path d={path} fill={type.includes('ENTRY') ? color : 'none'} stroke={color} strokeWidth={type.includes('ENTRY') ? 0 : 2} />
 
-            {/* The Shape */}
-            <path d={path} fill={color} stroke="white" strokeWidth="1" />
-
-            {/* Text Label */}
+            {/* Text Label - Monospace for clarity */}
             <text 
                 x={cx} 
-                y={textY} 
+                y={labelY} 
                 textAnchor="middle" 
                 fill={color} 
                 fontSize={9 * scale} 
-                fontWeight="900"
-                style={{ textShadow: '0 0 2px white', fontFamily: 'monospace' }}
+                fontWeight="800"
+                style={{ fontFamily: 'monospace', textShadow: '0 1px 2px white' }}
             >
                 {label}
             </text>
@@ -163,24 +127,24 @@ const CustomTooltip = ({ active, payload, label, analysis }: any) => {
                     }`}>
                         <div className="flex items-center gap-2 font-bold">
                              <div className={`w-2 h-2 rounded-full ${
-                                 signal.type === 'LONG' ? 'bg-emerald-500' : 
-                                 signal.type === 'SHORT' ? 'bg-rose-500' : 'bg-yellow-500'
+                                 signal.type === 'ENTRY_LONG' ? 'bg-emerald-500' : 
+                                 signal.type === 'ENTRY_SHORT' ? 'bg-rose-500' : 
+                                 signal.type === 'EXIT_TP' ? 'bg-blue-500' : 'bg-orange-500'
                              }`} />
-                             <span className={signal.type.includes('LONG') ? 'text-emerald-700' : signal.type.includes('SHORT') ? 'text-rose-700' : 'text-slate-700'}>
-                                {signal.type === 'LONG' ? '做多开仓' : 
-                                 signal.type === 'SHORT' ? '做空开仓' : 
-                                 signal.type === 'EXIT_LONG' ? '多单平仓' : '空单平仓'}
+                             <span className="text-slate-800">
+                                {signal.type === 'ENTRY_LONG' ? '多单进场' : 
+                                 signal.type === 'ENTRY_SHORT' ? '空单进场' : 
+                                 signal.type === 'EXIT_TP' ? '止盈离场' : '止损/平保'}
                              </span>
-                             {signal.strength === 'STRONG' && <span className="ml-auto text-[9px] bg-white px-1 rounded border shadow-sm">强</span>}
                         </div>
-                        <div className="text-[10px] text-slate-500 break-words leading-tight">
+                        <div className="text-[10px] text-slate-500 break-words leading-tight mt-1">
                             {signal.reason}
                         </div>
                     </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <span>Vol:</span> <span className="font-mono text-slate-500">{Math.floor(data.volume)}</span>
+                    <span>ATR:</span> <span className="font-mono text-slate-500">{data.atr?.toFixed(2)}</span>
                     <span>RSI:</span> <span className="font-mono text-purple-600">{data.rsi?.toFixed(1)}</span>
                 </div>
             </div>
@@ -199,8 +163,12 @@ const CandlestickChart: React.FC<Props> = ({ data, analysis, isMacroMode, onHove
 
   // Filter signals based on user toggle
   const signals = (analysis?.signals || []).filter(s => {
-      if (s.type === 'LONG' || s.type === 'EXIT_LONG') return showLongs;
-      if (s.type === 'SHORT' || s.type === 'EXIT_SHORT') return showShorts;
+      // Determine if this signal relates to LONG or SHORT strategy
+      const isLongRel = s.type === 'ENTRY_LONG' || (s.subType === 'LONG');
+      const isShortRel = s.type === 'ENTRY_SHORT' || (s.subType === 'SHORT');
+      
+      if (isLongRel) return showLongs;
+      if (isShortRel) return showShorts;
       return true;
   });
 
@@ -246,12 +214,11 @@ const CandlestickChart: React.FC<Props> = ({ data, analysis, isMacroMode, onHove
             isAnimationActive={false}
           />
           
-          <Line type="monotone" dataKey="maFast" stroke="#f59e0b" dot={false} strokeWidth={1} isAnimationActive={false} />
-          <Line type="monotone" dataKey="maMedium" stroke="#8b5cf6" dot={false} strokeWidth={1} isAnimationActive={false} />
-          <Line type="monotone" dataKey="maSlow" stroke="#3b82f6" dot={false} strokeWidth={1} isAnimationActive={false} />
+          {/* Main Indicators */}
+          <Line type="monotone" dataKey="maMedium" stroke="#8b5cf6" dot={false} strokeWidth={1.5} isAnimationActive={false} />
           
-          <Area type="monotone" dataKey="bbUpper" stroke="none" fill="#e2e8f0" fillOpacity={0.1} isAnimationActive={false} />
-          <Area type="monotone" dataKey="bbLower" stroke="none" fill="#e2e8f0" fillOpacity={0.1} isAnimationActive={false} />
+          <Area type="monotone" dataKey="bbUpper" stroke="none" fill="#e2e8f0" fillOpacity={0.15} isAnimationActive={false} />
+          <Area type="monotone" dataKey="bbLower" stroke="none" fill="#e2e8f0" fillOpacity={0.15} isAnimationActive={false} />
 
           <Bar dataKey="wick" barSize={1} isAnimationActive={false}>
             {chartData.map((entry, index) => <Cell key={`wick-${index}`} fill={entry.color} />)}
@@ -261,25 +228,27 @@ const CandlestickChart: React.FC<Props> = ({ data, analysis, isMacroMode, onHove
             {chartData.map((entry, index) => <Cell key={`body-${index}`} fill={entry.color} />)}
           </Bar>
 
-          {/* Render Signals */}
+          {/* Signals */}
           {signals.map((signal, idx) => (
              <ReferenceDot 
                 key={`sig-${idx}`}
                 x={signal.time} 
-                // Position logic: Long/ExitShort below, Short/ExitLong above
+                // Position logic: 
+                // Entry Long / TP Short / SL Short -> Below
+                // Entry Short / TP Long / SL Long -> Above
                 y={
-                    (signal.type === 'LONG' || signal.type === 'EXIT_SHORT') 
-                    ? signal.price * 0.995 
-                    : signal.price * 1.005
+                    (signal.type === 'ENTRY_LONG' || (signal.type !== 'ENTRY_SHORT' && signal.subType === 'SHORT')) 
+                    ? signal.price * 0.996
+                    : signal.price * 1.004
                 } 
                 r={0} 
-                shape={(props: any) => <SignalArrow {...props} type={signal.type} strength={signal.strength} />}
+                shape={(props: any) => <SignalMarker {...props} type={signal.type} subType={signal.subType} strength={signal.strength} />}
              />
           ))}
 
           {analysis && (
               <ReferenceLine y={analysis.predictedPrice} stroke="#3b82f6" strokeDasharray="3 3" opacity={0.5}>
-                  <Label value="AI Target" position="right" fill="#3b82f6" fontSize={10} />
+                  <Label value="AI 目标" position="right" fill="#3b82f6" fontSize={10} />
               </ReferenceLine>
           )}
 
